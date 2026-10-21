@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grocery List</title>
+<style>
+  :root {
+    --bg: #f5f6f2; --card: #ffffff; --ink: #1f2a24; --muted: #6b766f;
+    --line: #e2e6e0; --accent: #2f6b4f; --accent-soft: #e4f0e9;
+    --warn: #b4532a; --best: #1f7a4d; --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141815; --card: #1d231f; --ink: #e8ece9; --muted: #9aa59e;
+      --line: #2c3530; --accent: #6fbf95; --accent-soft: #23362b;
+      --warn: #e08a63; --best: #7fd3a6;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px; line-height: 1.4;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; padding: 10px; border: 1px solid var(--line); background: var(--card);
+    color: var(--ink); border-radius: var(--radius); font-weight: 600; cursor: pointer;
+    font-size: 14px;
+  }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px; margin-bottom: 14px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 10px; }
+
+  .form { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; }
+  .form .full { grid-column: 1 / -1; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  input, select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font-size: 15px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button.primary {
+    padding: 10px 14px; background: var(--accent); color: #fff; border: 0;
+    border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; width: 100%;
+  }
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px;
+  }
+  .icon-btn {
+    background: none; border: 0; color: var(--muted); cursor: pointer;
+    font-size: 18px; padding: 4px 8px; line-height: 1;
+  }
+  .icon-btn:hover { color: var(--warn); }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .item {
+    display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px;
+    align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .item:last-child { border-bottom: 0; }
+  .item input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+  .item .name { font-weight: 600; word-break: break-word; }
+  .item .meta { color: var(--muted); font-size: 13px; }
+  .item .amt { font-weight: 700; white-space: nowrap; }
+  .item.done .name, .item.done .amt { text-decoration: line-through; color: var(--muted); }
+
+  .totals {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px; margin-top: 4px; border-top: 2px solid var(--line); flex-wrap: wrap; gap: 8px;
+  }
+  .totals .big { font-size: 20px; font-weight: 800; }
+  .totals .small { color: var(--muted); font-size: 13px; }
+  .empty { color: var(--muted); text-align: center; padding: 18px 0; font-size: 14px; }
+
+  .group { margin-bottom: 12px; }
+  .group-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); margin: 8px 0 6px;
+  }
+  .cmp {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px;
+  }
+  .cmp.best { border-color: var(--best); background: var(--accent-soft); }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px;
+    border-radius: 99px; background: var(--best); color: #fff; margin-left: 6px; vertical-align: middle;
+  }
+  .ppu { text-align: right; font-weight: 700; white-space: nowrap; }
+  .ppu small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .diff { color: var(--warn); font-size: 12px; }
+  .hidden { display: none; }
+
+  .actions { display: flex; align-items: center; }
+  .icon-btn.edit:hover { color: var(--accent); }
+  .edit-row {
+    grid-column: 1 / -1; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 6px;
+    background: var(--accent-soft); padding: 10px; border-radius: 10px;
+  }
+  .edit-row input, .edit-row select { padding: 7px 8px; font-size: 14px; background: var(--card); }
+  .edit-row .btns { grid-column: 1 / -1; display: flex; gap: 6px; }
+  .edit-row .btns button { flex: 1; width: auto; padding: 8px; font-size: 14px; }
+  .item.editing, .cmp.editing { display: block; border-color: var(--accent); }
+  .item.editing { padding: 8px 0; }
+  .cmp.editing { padding: 0; border: 0; }
+  .name.tap { cursor: pointer; }
+  @media (max-width: 560px) {
+    .edit-row { grid-template-columns: 1fr 1fr; }
+    .edit-row .wide { grid-column: 1 / -1; }
+  }
+
+  .export-box {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+  }
+  .export-box .full { grid-column: 1 / -1; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); margin: 0; white-space: nowrap; }
+  .chk input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .sheet {
+    background: var(--card); border-radius: var(--radius); padding: 14px;
+    width: 100%; max-width: 420px; max-height: 92vh; display: flex; flex-direction: column; gap: 10px;
+  }
+  .sheet .img-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .sheet img { display: block; width: 100%; height: auto; }
+  .sheet .btns { display: flex; gap: 8px; }
+  .sheet .btns button { flex: 1; }
+  .hint { color: var(--muted); font-size: 12px; margin: 0; text-align: center; }
+
+  @media (max-width: 560px) {
+    .form { grid-template-columns: 1fr 1fr; }
+    .form .name-field { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Grocery List</h1>
+  <p class="sub">Your list saves automatically on this device.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="list">Shopping List</button>
+    <button class="tab" data-tab="compare">Compare Prices</button>
+  </div>
+
+  <!-- ============ SHOPPING LIST ============ -->
+  <section id="tab-list">
+    <div class="card">
+      <h2>Add item</h2>
+      <form id="itemForm" class="form" autocomplete="off">
+        <div class="name-field">
+          <label for="iName">Item</label>
+          <input id="iName" required placeholder="e.g. Rice">
+        </div>
+        <div>
+          <label for="iPrice">Price (₱)</label>
+          <input id="iPrice" type="number" step="0.01" min="0" required placeholder="0.00" inputmode="decimal">
+        </div>
+        <div>
+          <label for="iQty">Qty</label>
+          <input id="iQty" type="number" step="any" min="0" value="1" required inputmode="decimal">
+        </div>
+        <div>
+          <label for="iUom">Unit (optional)</label>
+          <input id="iUom" list="uomList" placeholder="pc, kg…">
+        </div>
+        <div class="full"><button class="primary" type="submit">Add to list</button></div>
+      </form>
+      <datalist id="uomList">
+        <option value="pc"><option value="pack"><option value="kg"><option value="g">
+        <option value="L"><option value="ml"><option value="dozen"><option value="bottle"><option value="can">
+      </datalist>
+    </div>
+
+    <div class="card">
+      <h2>My list</h2>
+      <ul id="itemList" class="list"></ul>
+      <div id="itemEmpty" class="empty">No items yet.</div>
+      <div class="totals">
+        <div>
+          <div class="small" id="countLine">0 items</div>
+          <div class="small" id="checkedLine"></div>
+        </div>
+        <div style="text-align:right">
+          <div class="small">Total</div>
+          <div class="big" id="grandTotal">₱0.00</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">
+        <button class="ghost" id="uncheckAll">Uncheck all</button>
+        <button class="ghost" id="clearChecked">Remove checked</button>
+        <button class="ghost" id="clearList">Clear list</button>
+      </div>
+
+      <div class="export-box">
+        <div class="full">
+          <label for="storeName">Store name (optional, appears on the image)</label>
+          <input id="storeName" placeholder="e.g. SM Supermarket Clark">
+        </div>
+        <label class="chk"><input type="checkbox" id="onlyCart"> Only items in cart</label>
+        <button class="primary" id="exportBtn" style="width:auto">Export PNG / PDF</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- receipt preview -->
+  <div id="preview" class="overlay hidden" role="dialog" aria-label="Receipt image preview">
+    <div class="sheet">
+      <div class="img-wrap"><img id="previewImg" alt="Grocery list receipt"></div>
+      <div class="btns">
+        <button class="primary" id="savePng">Save PNG</button>
+        <button class="primary" id="savePdf">Save PDF</button>
+      </div>
+      <button class="ghost" id="closePreview">Close</button>
+      <p class="hint">If saving doesn't work in your browser, press and hold the image to save it.</p>
+    </div>
+  </div>
+
+  <!-- ============ COMPARE ============ -->
+  <section id="tab-compare" class="hidden">
+    <div class="card">
+      <h2>Add product to compare</h2>
+      <form id="cmpForm" class="form" autocomplete="off">
+        <div class="name-field">
+          <label for="cName">Product</label>
+          <input id="cName" required placeholder="e.g. Pantene">
+        </div>
+        <div>
+          <label for="cPrice">Price (₱)</label>
+          <input id="cPrice" type="number" step="0.01" min="0" required placeholder="0.00" inputmode="decimal">
+        </div>
+        <div>
+          <label for="cSize">Size</label>
+          <input id="cSize" type="number" step="any" min="0" required placeholder="800" inputmode="decimal">
+        </div>
+        <div>
+          <label for="cUnit">Unit</label>
+          <select id="cUnit">
+            <option value="ml">ml</option>
+            <option value="L">L</option>
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+            <option value="pc">pc</option>
+          </select>
+        </div>
+        <div class="full"><button class="primary" type="submit">Add to comparison</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Price per unit</h2>
+      <div id="cmpGroups"></div>
+      <div id="cmpEmpty" class="empty">Add at least two products with the same kind of unit to see which is cheaper.</div>
+      <div style="margin-top:8px"><button class="ghost" id="clearCmp">Clear comparison</button></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  // ---------- storage (safe) ----------
+  const KEY = 'groceryApp.v1';
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || { items: [], cmp: [] }; }
+    catch (e) { return { items: [], cmp: [] }; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  const state = load();
+  let editingItem = null;  // id of shopping-list item being edited
+  let editingCmp = null;   // id of compare product being edited
+
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const peso = (n) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const fmtStamp = (ts) => new Date(ts).toLocaleString('en-PH',
+    { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fmtNum = (n) => Number(n).toLocaleString('en-PH', { maximumFractionDigits: 3 });
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
+      $('tab-list').classList.toggle('hidden', btn.dataset.tab !== 'list');
+      $('tab-compare').classList.toggle('hidden', btn.dataset.tab !== 'compare');
+    });
+  });
+
+  // ---------- shopping list ----------
+  $('itemForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('iName').value.trim();
+    const price = parseFloat($('iPrice').value);
+    const qty = parseFloat($('iQty').value);
+    if (!name || isNaN(price) || isNaN(qty)) return;
+    state.items.push({ id: uid(), name, price, qty, uom: $('iUom').value.trim(), done: false, addedAt: Date.now() });
+    save(); renderList();
+    e.target.reset(); $('iQty').value = 1; $('iName').focus();
+  });
+
+  function renderList() {
+    const ul = $('itemList');
+    ul.innerHTML = '';
+    let total = 0, checkedTotal = 0, checked = 0;
+    state.items.forEach(it => {
+      const line = it.price * it.qty;
+      total += line;
+      if (it.done) { checkedTotal += line; checked++; }
+      const li = document.createElement('li');
+
+      if (it.id === editingItem) {
+        li.className = 'item editing';
+        li.innerHTML = `
+          <form class="edit-row">
+            <div class="wide"><label>Item</label><input name="name" value="${esc(it.name)}" required></div>
+            <div><label>Price (₱)</label><input name="price" type="number" step="0.01" min="0" value="${it.price}" required inputmode="decimal"></div>
+            <div><label>Qty</label><input name="qty" type="number" step="any" min="0" value="${it.qty}" required inputmode="decimal"></div>
+            <div><label>Unit</label><input name="uom" list="uomList" value="${esc(it.uom || '')}"></div>
+            <div class="btns">
+              <button type="submit" class="primary">Save</button>
+              <button type="button" class="ghost cancel">Cancel</button>
+            </div>
+          </form>`;
+        const f = li.querySelector('form');
+        f.addEventListener('submit', (ev) => {
+          ev.preventDefault();
+          const name = f.elements.name.value.trim(), price = parseFloat(f.elements.price.value), qty = parseFloat(f.elements.qty.value);
+          if (!name || isNaN(price) || isNaN(qty)) return;
+          Object.assign(it, { name, price, qty, uom: f.elements.uom.value.trim() });
+          editingItem = null; save(); renderList();
+        });
+        f.querySelector('.cancel').addEventListener('click', () => { editingItem = null; renderList(); });
+        ul.appendChild(li);
+        setTimeout(() => f.elements.price.focus(), 0);
+        return;
+      }
+
+      li.className = 'item' + (it.done ? ' done' : '');
+      li.innerHTML = `
+        <input type="checkbox" ${it.done ? 'checked' : ''} aria-label="Mark as bought">
+        <div class="name tap" title="Tap to edit">
+          <div>${esc(it.name)}</div>
+          <div class="meta" style="font-weight:400">${fmtNum(it.qty)}${it.uom ? ' ' + esc(it.uom) : ''} × ${peso(it.price)}</div>
+          ${it.addedAt ? `<div class="meta" style="font-weight:400;font-size:11px">Added ${fmtStamp(it.addedAt)}</div>` : ''}
+        </div>
+        <div class="amt">${peso(line)}</div>
+        <div class="actions">
+          <button class="icon-btn edit" aria-label="Edit">✎</button>
+          <button class="icon-btn del" aria-label="Remove">×</button>
+        </div>`;
+      li.querySelector('input').addEventListener('change', (ev) => {
+        it.done = ev.target.checked; save(); renderList();
+      });
+      const startEdit = () => { editingItem = it.id; renderList(); };
+      li.querySelector('.edit').addEventListener('click', startEdit);
+      li.querySelector('.tap').addEventListener('click', startEdit);
+      li.querySelector('.del').addEventListener('click', () => {
+        state.items = state.items.filter(x => x.id !== it.id); save(); renderList();
+      });
+      ul.appendChild(li);
+    });
+    $('itemEmpty').style.display = state.items.length ? 'none' : 'block';
+    $('grandTotal').textContent = peso(total);
+    $('countLine').textContent = state.items.length + (state.items.length === 1 ? ' item' : ' items');
+    $('checkedLine').textContent = checked ? `In cart: ${checked} · ${peso(checkedTotal)}` : '';
+  }
+
+  $('uncheckAll').addEventListener('click', () => { state.items.forEach(i => i.done = false); save(); renderList(); });
+  $('clearChecked').addEventListener('click', () => { state.items = state.items.filter(i => !i.done); save(); renderList(); });
+  $('clearList').addEventListener('click', () => {
+    if (state.items.length && confirm('Clear the whole list?')) { state.items = []; save(); renderList(); }
+  });
+
+  // ---------- compare ----------
+  // Convert everything to a base unit so ml vs L (and g vs kg) compare fairly.
+  const UNITS = {
+    ml: { base: 'ml', factor: 1, label: 'Volume' },
+    L:  { base: 'ml', factor: 1000, label: 'Volume' },
+    g:  { base: 'g',  factor: 1, label: 'Weight' },
+    kg: { base: 'g',  factor: 1000, label: 'Weight' },
+    pc: { base: 'pc', factor: 1, label: 'Pieces' }
+  };
+
+  $('cmpForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('cName').value.trim();
+    const price = parseFloat($('cPrice').value);
+    const size = parseFloat($('cSize').value);
+    const unit = $('cUnit').value;
+    if (!name || isNaN(price) || !(size > 0)) return;
+    state.cmp.push({ id: uid(), name, price, size, unit });
+    save(); renderCmp();
+    $('cName').value = ''; $('cPrice').value = ''; $('cSize').value = ''; $('cName').focus();
+  });
+
+  function renderCmp() {
+    const wrap = $('cmpGroups');
+    wrap.innerHTML = '';
+    const groups = {};
+    state.cmp.forEach(p => {
+      const u = UNITS[p.unit];
+      const baseQty = p.size * u.factor;
+      const ppu = p.price / baseQty;
+      (groups[u.base] = groups[u.base] || { label: u.label, base: u.base, rows: [] })
+        .rows.push({ ...p, baseQty, ppu });
+    });
+
+    Object.values(groups).forEach(g => {
+      g.rows.sort((a, b) => a.ppu - b.ppu);
+      const best = g.rows[0].ppu;
+      const div = document.createElement('div');
+      div.className = 'group';
+      div.innerHTML = `<div class="group-title">${g.label} — price per ${g.base}</div>`;
+      g.rows.forEach((r, i) => {
+        const isBest = g.rows.length > 1 && r.ppu === best;
+        const pct = best > 0 ? ((r.ppu - best) / best) * 100 : 0;
+        const per100 = g.base === 'pc' ? '' : `<small>${peso(r.ppu * 100)} / 100${g.base}</small>`;
+        const row = document.createElement('div');
+        const orig = state.cmp.find(x => x.id === r.id);
+
+        if (r.id === editingCmp) {
+          row.className = 'cmp editing';
+          const opts = Object.keys(UNITS).map(u => `<option value="${u}" ${u === r.unit ? 'selected' : ''}>${u}</option>`).join('');
+          row.innerHTML = `
+            <form class="edit-row">
+              <div class="wide"><label>Product</label><input name="name" value="${esc(r.name)}" required></div>
+              <div><label>Price (₱)</label><input name="price" type="number" step="0.01" min="0" value="${r.price}" required inputmode="decimal"></div>
+              <div><label>Size</label><input name="size" type="number" step="any" min="0" value="${r.size}" required inputmode="decimal"></div>
+              <div><label>Unit</label><select name="unit">${opts}</select></div>
+              <div class="btns">
+                <button type="submit" class="primary">Save</button>
+                <button type="button" class="ghost cancel">Cancel</button>
+              </div>
+            </form>`;
+          const f = row.querySelector('form');
+          f.addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            const name = f.elements.name.value.trim(), price = parseFloat(f.elements.price.value), size = parseFloat(f.elements.size.value);
+            if (!name || isNaN(price) || !(size > 0)) return;
+            Object.assign(orig, { name, price, size, unit: f.elements.unit.value });
+            editingCmp = null; save(); renderCmp();
+          });
+          f.querySelector('.cancel').addEventListener('click', () => { editingCmp = null; renderCmp(); });
+          div.appendChild(row);
+          setTimeout(() => f.elements.price.focus(), 0);
+          return;
+        }
+
+        row.className = 'cmp' + (isBest ? ' best' : '');
+        row.innerHTML = `
+          <div class="tap" style="cursor:pointer" title="Tap to edit">
+            <div class="name" style="font-weight:600">${esc(r.name)}${isBest ? '<span class="badge">Best value</span>' : ''}</div>
+            <div class="meta" style="color:var(--muted);font-size:13px">${peso(r.price)} for ${fmtNum(r.size)} ${r.unit}</div>
+            ${!isBest && g.rows.length > 1 ? `<div class="diff">${pct.toFixed(1)}% more per ${g.base}</div>` : ''}
+          </div>
+          <div class="ppu">₱${r.ppu.toFixed(4)}/${g.base}${per100}</div>
+          <div class="actions">
+            <button class="icon-btn edit" aria-label="Edit">✎</button>
+            <button class="icon-btn del" aria-label="Remove">×</button>
+          </div>`;
+        const startEdit = () => { editingCmp = r.id; renderCmp(); };
+        row.querySelector('.edit').addEventListener('click', startEdit);
+        row.querySelector('.tap').addEventListener('click', startEdit);
+        row.querySelector('.del').addEventListener('click', () => {
+          state.cmp = state.cmp.filter(x => x.id !== r.id); save(); renderCmp();
+        });
+        div.appendChild(row);
+      });
+      wrap.appendChild(div);
+    });
+    $('cmpEmpty').style.display = state.cmp.length ? 'none' : 'block';
+  }
+
+  $('clearCmp').addEventListener('click', () => {
+    if (state.cmp.length && confirm('Clear all compared products?')) { state.cmp = []; save(); renderCmp(); }
+  });
+
+  // ---------- export (receipt image / PDF) ----------
+  const F = '"Courier New", Courier, monospace';
+  const RW = 600, RP = 32, RS = 2;   // receipt width, padding, pixel scale
+  let lastCanvas = null;
+
+  $('storeName').value = state.store || '';
+  $('storeName').addEventListener('input', (e) => { state.store = e.target.value; save(); });
+
+  function wrapLines(ctx, text, font, max) {
+    ctx.font = font;
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = []; let cur = '';
+    words.forEach(w => {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > max && cur) { lines.push(cur); cur = w; }
+      else cur = test;
+    });
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [''];
+  }
+
+  // Runs twice: once to measure height, once to draw.
+  function layoutReceipt(ctx, items, draw) {
+    const max = RW - RP * 2;
+    let y = RP;
+    const txt = (t, x, align, font, color) => {
+      if (!draw) return;
+      ctx.font = font; ctx.fillStyle = color || '#111'; ctx.textAlign = align; ctx.fillText(t, x, y);
+    };
+    const dash = () => {
+      if (!draw) return;
+      ctx.save(); ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.moveTo(RP, y); ctx.lineTo(RW - RP, y); ctx.stroke(); ctx.restore();
+    };
+    const store = $('storeName').value.trim();
+    const only = $('onlyCart').checked;
+
+    wrapLines(ctx, store || 'GROCERY LIST', `bold 22px ${F}`, max)
+      .forEach(l => { txt(l, RW / 2, 'center', `bold 22px ${F}`); y += 28; });
+    const now = new Date();
+    txt('Date: ' + now.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+        RW / 2, 'center', `14px ${F}`, '#555');
+    y += 20;
+    txt('Time: ' + now.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit' }),
+        RW / 2, 'center', `14px ${F}`, '#555');
+    y += 20;
+    if (only) { txt('Items in cart only', RW / 2, 'center', `14px ${F}`, '#555'); y += 20; }
+    y += 8; dash(); y += 14;
+
+    let total = 0;
+    items.forEach(it => {
+      const line = it.price * it.qty;
+      total += line;
+      wrapLines(ctx, it.name, `bold 16px ${F}`, max)
+        .forEach(l => { txt(l, RP, 'left', `bold 16px ${F}`); y += 20; });
+      txt(`  ${fmtNum(it.qty)}${it.uom ? ' ' + it.uom : ''} x ${peso(it.price)}`, RP, 'left', `15px ${F}`, '#444');
+      txt(peso(line), RW - RP, 'right', `15px ${F}`);
+      y += 26;
+    });
+
+    y += 2; dash(); y += 14;
+    txt('TOTAL', RP, 'left', `bold 20px ${F}`);
+    txt(peso(total), RW - RP, 'right', `bold 20px ${F}`);
+    y += 28;
+    txt(`${items.length} ${items.length === 1 ? 'item' : 'items'}`, RP, 'left', `14px ${F}`, '#555');
+    y += 20;
+    return y + RP - 8;
+  }
+
+  function buildReceipt() {
+    const only = $('onlyCart').checked;
+    const items = state.items.filter(i => !only || i.done);
+    if (!items.length) {
+      alert(only ? 'No items are checked as in cart yet.' : 'Your list is empty.');
+      return null;
+    }
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    const h = layoutReceipt(ctx, items, false);
+    c.width = RW * RS; c.height = Math.ceil(h * RS);
+    ctx.setTransform(RS, 0, 0, RS, 0, 0);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, RW, h);
+    ctx.textBaseline = 'top';
+    layoutReceipt(ctx, items, true);
+    return c;
+  }
+
+  const stamp = () => {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+  };
+
+  function download(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  // On phones, use the share sheet (Save to Photos / Files); elsewhere, download.
+  function saveBlob(blob, filename) {
+    const file = new File([blob], filename, { type: blob.type });
+    const touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename })
+        .catch(err => { if (!err || err.name !== 'AbortError') download(blob, filename); });
+      return;
+    }
+    download(blob, filename);
+  }
+
+  // One-page PDF holding the receipt image — built by hand, no library or internet needed.
+  function canvasToPdf(canvas) {
+    const bin = atob(canvas.toDataURL('image/jpeg', 0.95).split(',')[1]);
+    const img = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) img[i] = bin.charCodeAt(i);
+    const pw = 340, ph = Math.round(pw * canvas.height / canvas.width);  // page size in points
+    const enc = new TextEncoder();
+    const parts = [], offsets = [];
+    let len = 0;
+    const push = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+    const obj = (n, body) => { offsets[n] = len; push(`${n} 0 obj\n`); body(); push('\nendobj\n'); };
+
+    push('%PDF-1.4\n');
+    obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+    obj(2, () => push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'));
+    obj(3, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`));
+    obj(4, () => {
+      push(`<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`);
+      push(img); push('\nendstream');
+    });
+    const content = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    obj(5, () => push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
+    const xref = len;
+    let x = 'xref\n0 6\n0000000000 65535 f \n';
+    for (let n = 1; n <= 5; n++) x += String(offsets[n]).padStart(10, '0') + ' 00000 n \n';
+    push(x + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+
+  const closePreview = () => $('preview').classList.add('hidden');
+  $('exportBtn').addEventListener('click', () => {
+    const c = buildReceipt();
+    if (!c) return;
+    lastCanvas = c;
+    $('previewImg').src = c.toDataURL('image/png');
+    $('preview').classList.remove('hidden');
+  });
+  $('closePreview').addEventListener('click', closePreview);
+  $('preview').addEventListener('click', (e) => { if (e.target === $('preview')) closePreview(); });
+  $('savePng').addEventListener('click', () => {
+    if (lastCanvas) lastCanvas.toBlob(b => saveBlob(b, `grocery-list-${stamp()}.png`), 'image/png');
+  });
+  $('savePdf').addEventListener('click', () => {
+    if (lastCanvas) saveBlob(canvasToPdf(lastCanvas), `grocery-list-${stamp()}.pdf`);
+  });
+
+  renderList();
+  renderCmp();
+})();
+</script>
+</body>
+</html>
